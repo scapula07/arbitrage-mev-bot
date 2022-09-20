@@ -47,6 +47,10 @@ const arbContractTx =new Tweb3.eth.Contract(
     ArbContract,
     contractAddress
 )
+const Token0Tx =new Tweb3.eth.Contract(
+    IERC20.abi,
+    addrToken0
+)
 
 
 const token0 = new web3.eth.Contract(IERC20.abi,addrToken0)
@@ -83,7 +87,7 @@ const arbTrade=async()=>{
         token1Symbol = await token1.methods.symbol().call()
         console.log(`Token Assets: ${ token0Symbol}/${token1Symbol}`)
        
-        amountIn = await arbContractTx.methods.getBalance("0x6B175474E89094C44Da98b954EedeAC495271d0F").call()
+        amountIn = await  Token0Tx.methods.balanceOf(myAccount).call()
         console.log(`Initial Balance of Contract:${web3.utils.fromWei(amountIn , "ether")} DAI`)
         
     }
@@ -147,14 +151,30 @@ const arbTrade=async()=>{
                 const totalDifference = difference*Math.round(amountIn /10**18)
                 console.log(`Total Difference :${totalDifference}`)
               
-
+                const path = [token0.options.address,token1.options.address]
                 const deadline = Math.round(Date.now()/1000)+validPeriod*60 
                 // const gasNeeded0 = await token0.methods.approve(uRouter.options.address,amountIn ).estimateGas()
                 // console.log(`Gas needed for token approval :${gasNeeded0}`)
                 // console.log((0.03*10**6)*2,"gasss")
-                const gasNeeded1 = await arbContract.methods.SushiwapToUniswapTrade(token0.options.address,token1.options.address ).estimateGas()
-                console.log(`Gas for swap:${gasNeeded1}`)
-                const gasNeeded=gasNeeded1
+                // const gasNeeded1 = await arbContract.methods.SushiwapToUniswapTrade(token0.options.address,token1.options.address ).estimateGas()
+                 
+                const gasNeeded0 = await token0.methods.approve(uRouter.options.address,amountIn).estimateGas()
+                console.log(gasNeeded0,"gasNeeded0")
+                // console.log(`Gas for swap:${gasNeeded1}`)
+                // const gasNeeded=gasNeeded1
+            
+                
+                await token0.methods.approve(uRouter.options.address,amountIn).send()
+                const gasNeeded1 = await uRouter.methods.swapExactTokensForTokens(
+                    amountIn,
+                    0,
+                    path,
+                    publicAddress,
+                    deadline
+                ).estimateGas()
+                console.log(gasNeeded1,"gasNeeded1")
+                const gasNeeded=gasNeeded0+gasNeeded1
+                
                 const gasPrice = await web3.eth.getGasPrice()
                 const gasCost = Number(gasPrice)*gasNeeded/10**18
               
@@ -172,9 +192,48 @@ const arbTrade=async()=>{
                 // UpdateDb(difference,profitUsd,"None")
                 
                 if(profitUsd <=1) return console.log("Profit too low for trade")
-                   swapSushiToUni()
+                //    swapSushiToUni()
                 //   UpdateDb(difference,profitUsd,"Sushiswap to Uniswap . No swap")
-                
+               
+            const tx0 = {//transaction
+                from:publicAddress, 
+                to: token0.options.address, 
+                gas: gasNeeded0, 
+                data: token0.methods.approve(uRouter.options.address,amountIn).encodeABI()
+            }
+
+            signedTx0 = await web3.eth.accounts.signTransaction(tx0, privateKey);
+            
+            console.log('Tx pending {1/2}')
+            receipt0 = await web3.eth.sendSignedTransaction(signedTx0.rawTransaction)
+            
+            console.log(
+                `Tx mined\n`+
+                `Tx hash: ${receipt0.transactionHash}\n`
+                )
+
+            const tx1 = {
+                from: publicAddress, 
+                to: uRouter.options.address, 
+                gas: gasNeeded1, 
+                data: uRouter.methods.swapExactTokensForTokens(
+                    amountIn,
+                    0,
+                    path,
+                    myAccount,
+                    deadline
+                ).encodeABI()
+            }
+
+              signedTx1 = await web3.eth.accounts.signTransaction(tx1, privateKey);
+            
+            console.log('Tx pending {2/2}')
+            receipt1 = await web3.eth.sendSignedTransaction(signedTx1.rawTransaction)
+            
+            console.log(
+                `Tx mined, trade executed!\n`+
+                `Tx hash: ${receipt1.transactionHash}\n`
+                )
 
 
                
@@ -189,19 +248,29 @@ const arbTrade=async()=>{
                 //const totalDifference = difference*Math.round(amountIn/10**18)
                 const totalDifference = difference*Math.round(amountIn /10**18)
                 console.log(`Total Difference :${totalDifference}`)
-              
+
+                const path = [token0.options.address,token1.options.address]
+
                 const deadline = Math.round(Date.now()/1000)+validPeriod*60 
-               // const gasNeeded0 = await token0.methods.approve(uRouter.options.address,amountIn).estimateGas()
-              
-            //    console.log(`Gas needed for token approval :${gasNeeded0}`)
-            //    console.log((0.03*10**6)*2,"gasss")
-               const gasNeeded1 = await arbContract.methods.UniswapToSushiwapTrade(token0.options.address,token1.options.address).estimateGas()
-               console.log(`Gas for swap:${gasNeeded1}`)
-             
-          
-               const gasNeeded=gasNeeded1
-               const gasPrice = await web3.eth.getGasPrice()
-               const gasCost = Number(gasPrice)*gasNeeded/10**18
+                const gasNeeded0 = await token0.methods.approve(sRouter.options.address,amountIn).estimateGas()
+                console.log(gasNeeded0,"gasNeeded0")
+                // console.log(`Gas for swap:${gasNeeded1}`)
+                // const gasNeeded=gasNeeded1
+            
+                
+                await token0.methods.approve(uRouter.options.address,amountIn).send()
+                const gasNeeded1 = await sRouter.methods.swapExactTokensForTokens(
+                    amountIn,
+                    0,
+                    path,
+                   publicAddress,
+                    deadline
+                ).estimateGas()
+                console.log(gasNeeded1,"gasNeeded1")
+                const gasNeeded=gasNeeded0+gasNeeded1
+                
+                const gasPrice = await web3.eth.getGasPrice()
+                const gasCost = Number(gasPrice)*gasNeeded/10**18
               
 
                const token0PriceEth=0.999689*1/sPriceEth 
@@ -217,7 +286,47 @@ const arbTrade=async()=>{
             //    UpdateDb(difference,profitUsd,"None")
                  if(profitUsd <1) return  console.log("profit is too low for trade")
                    
-                 swapUniToSushi()
+                      
+            const tx0 = {//transaction
+                from:publicAddress, 
+                to: token0.options.address, 
+                gas: gasNeeded0, 
+                data: token0.methods.approve(uRouter.options.address,amountIn).encodeABI()
+            }
+
+            signedTx0 = await web3.eth.accounts.signTransaction(tx0, privateKey);
+            
+            console.log('Tx pending {1/2}')
+            receipt0 = await web3.eth.sendSignedTransaction(signedTx0.rawTransaction)
+            
+            console.log(
+                `Tx mined\n`+
+                `Tx hash: ${receipt0.transactionHash}\n`
+                )
+
+            const tx1 = {
+                from: myAccount, 
+                to: sRouter.options.address, 
+                gas: gasNeeded1, 
+                data: sRouter.methods.swapExactTokensForTokens(
+                    amountIn,
+                    0,
+                    path,
+                    myAccount,
+                    deadline
+                ).encodeABI()
+            }
+
+              signedTx1 = await web3.eth.accounts.signTransaction(tx1, privateKey);
+            
+            console.log('Tx pending {2/2}')
+            receipt1 = await web3.eth.sendSignedTransaction(signedTx1.rawTransaction)
+            
+            console.log(
+                `Tx mined, trade executed!\n`+
+                `Tx hash: ${receipt1.transactionHash}\n`
+                )
+
              
              
                 
