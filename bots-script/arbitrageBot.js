@@ -1,9 +1,6 @@
-const {db} =require("../firebase")
-const { collection, setDoc,doc,getDoc,addDoc,updateDoc } =require('firebase/firestore')  
+
 const Web3 = require("web3")
 const express =require("express")
-const router=express.Router()
-const io =require("../index")
 const erc20min=require("../build/contracts/IERC20Minimal.json")
 const {swapUniToSushi,swapSushiToUni}=require("./swapFunctions")
 const HDWalletProvider =require("@truffle/hdwallet-provider")
@@ -15,33 +12,35 @@ const ArbContract=require("../build/contracts/ArbitrageBot.json")
 const IFactoryV3 = require('@uniswap/v2-core/build/IUniswapV2Factory.json')
 const IPairV3 = require('@uniswap/v2-core/build/IUniswapV2Pair.json')  
 
-const publicAddress="0xC84D575389D950d2af60c1057bce53AC960Fb9c9"
-const contractAddress= "0x5b6B2Cf5950D98dcaCf2a405C08d26bD7B9B7Fa0"
 const addrSFactory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
 const addrSRouter ="0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
 const addrUFactory ="0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
-const addrURouter = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+// const addrURouter = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+const addrURouter = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
 
-const privateKey ="852831eb8fcf1210ab60381ad70648d920060e4ebea15331235e4bc2eee5f123"
 
-const validPeriod = 50
+
+const publicAddress=""   /////insertt your wallet Address
+const contractAddress= ""  ///insert the address of the deployed contract
+const privateKey =""   ///insert the private key
+
+
+
+
 const wss="wss://mainnet.infura.io/ws/v3/85fc7c4c61664a96808975adbb581787"
 
 
 
 const addrToken0 ="0x6B175474E89094C44Da98b954EedeAC495271d0F"
- const addrToken1 ="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" 
-
- const addrToken0Tx="0xdc31Ee1784292379Fbb2964b3B9C4124D8F89C60"
-const addrToken1Tx="0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6" 
+const addrToken1 ="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" 
 
 
-const web3 = new Web3("wss://mainnet.infura.io/ws/v3/85fc7c4c61664a96808975adbb581787")
+const web3 = new Web3(wss)
 const wss_provider = new HDWalletProvider(
     privateKey,
-    "wss://goerli.infura.io/ws/v3/85fc7c4c61664a96808975adbb581787"
+    wss
      )
-     const Tweb3 = new Web3(wss_provider)
+const Tweb3 = new Web3(wss_provider)
 const arbContract = new web3.eth.Contract(
     ArbContract,
     contractAddress
@@ -50,9 +49,9 @@ const arbContractTx =new Tweb3.eth.Contract(
     ArbContract,
     contractAddress
 )
-const Token0Tx =new Tweb3.eth.Contract(
+const Token0Contract =new Tweb3.eth.Contract(
     IERC20.abi,
-    addrToken0Tx
+    addrToken0
 )
 
 
@@ -90,7 +89,7 @@ const arbTrade=async()=>{
         token1Symbol = await token1.methods.symbol().call()
         console.log(`Token Assets: ${ token0Symbol}/${token1Symbol}`)
        
-        amountIn = await  Token0Tx.methods.balanceOf(contractAddress).call()
+        amountIn = await  Token0Contract.methods.balanceOf(contractAddress).call()
         console.log(`Initial Balance of Contract:${web3.utils.fromWei(amountIn , "ether")} DAI`)
         
     }
@@ -148,7 +147,7 @@ const arbTrade=async()=>{
                 console.log(`Total Difference :${totalDifference}`)
               
                 
-               const gasNeeded1 = await arbContractTx.methods.SushiwapToUniswapTrade(addrToken0Tx,addrToken1Tx ).estimateGas()
+               const gasNeeded1 = await arbContractTx.methods.SushiwapToUniswapTrade(addrToken0,addrToken1 ).estimateGas()
                 console.log(`Gas for swap:${gasNeeded1}`)
                 
                
@@ -157,7 +156,7 @@ const arbTrade=async()=>{
                 const gasPrice = await web3.eth.getGasPrice()
                 const gasCost = Number(gasPrice)*gasNeeded/10**18
               
-                 const token0PriceEth=0.999689*1/uPriceEth 
+                 const token0PriceEth=0.999994*1/uPriceEth 
         
                  console.log(`Price of Dai in eth:${token0PriceEth}`)
                 
@@ -186,7 +185,7 @@ const arbTrade=async()=>{
                 //const totalDifference = difference*Math.round(amountIn/10**18)
                 const totalDifference = difference*Math.round(amountIn /10**18)
                 console.log(`Total Difference :${totalDifference}`)
-                const gasNeeded1 = await arbContractTx.methods.UniswapToSushiwapTrade(addrToken0Tx,addrToken1Tx).estimateGas()
+                const gasNeeded1 = await arbContractTx.methods.UniswapToSushiwapTrade(addrToken0,addrToken1).estimateGas()
                 console.log(`Gas for swap:${gasNeeded1}`)
                
             
